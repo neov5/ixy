@@ -62,9 +62,10 @@
 #define VIRTIO_CONFIG_STATUS_RESET 0x00
 #define VIRTIO_CONFIG_STATUS_ACK 0x01
 #define VIRTIO_CONFIG_STATUS_DRIVER 0x02
-#define VIRTIO_CONFIG_STATUS_DRIVER_OK 0x04
-#define VIRTIO_CONFIG_STATUS_FEATURES_OK 0x08
 #define VIRTIO_CONFIG_STATUS_FAILED 0x80
+#define VIRTIO_CONFIG_STATUS_FEATURES_OK 0x08
+#define VIRTIO_CONFIG_STATUS_DRIVER_OK 0x04
+#define VIRTIO_CONFIG_STATUS_DEVICE_NEEDS_RESET 0x40
 
 /*
  * How many bits to shift physical queue address written to QUEUE_PFN.
@@ -82,6 +83,7 @@
 /* The feature bitmap for virtio net */
 #define VIRTIO_NET_F_CSUM 0            /* Host handles pkts w/ partial csum */
 #define VIRTIO_NET_F_GUEST_CSUM 1      /* Guest handles pkts w/ partial csum */
+#define VIRTIO_NET_F_CTRL_GUEST_OFFLOADS 2
 #define VIRTIO_NET_F_MTU 3             /* Initial MTU advice. */
 #define VIRTIO_NET_F_MAC 5             /* Host has given MAC address. */
 #define VIRTIO_NET_F_GUEST_TSO4 7      /* Guest can handle TSOv4 in. */
@@ -97,10 +99,16 @@
 #define VIRTIO_NET_F_CTRL_VQ 17        /* Control channel available */
 #define VIRTIO_NET_F_CTRL_RX 18        /* Control channel RX mode support */
 #define VIRTIO_NET_F_CTRL_VLAN 19      /* Control channel VLAN filtering */
-#define VIRTIO_NET_F_CTRL_RX_EXTRA 20  /* Extra RX mode control support */
 #define VIRTIO_NET_F_GUEST_ANNOUNCE 21 /* Guest can announce device on the network */
 #define VIRTIO_NET_F_MQ 22             /* Device supports Receive Flow Steering */
 #define VIRTIO_NET_F_CTRL_MAC_ADDR 23  /* Set MAC address */
+#define VIRTIO_NET_F_HOST_USO 56       /* can receive USO packets */
+#define VIRTIO_NET_F_HASH_REPORT 57    /* can report per-packet hash */
+#define VIRTIO_NET_F_GUEST_HDRLEN 59   /* can provide the exact hdr_len value */
+#define VIRTIO_NET_F_RSS 60	       /* supports RSS (receive-side scaling) with Toeplitz hash calculation */
+#define VIRTIO_NET_F_RSC_EXT 61        /* can process duplicated ACKs and report number of coalesced segments and duplicated ACKs. */
+#define VIRTIO_NET_F_STANDBY 62        /* may act as a standby for a primary device with the same MAC address. */
+#define VIRTIO_NET_F_SPEED_DUPLEX 63   /* reports speed and duplex. */
 
 /* Do we get callbacks when the ring is completely used, even if we've suppressed them? */
 #define VIRTIO_F_NOTIFY_ON_EMPTY 24
@@ -166,6 +174,18 @@ struct virtio_legacy_net_hdr {
 	uint16_t csum_start;  /**< Position to start checksumming from */
 	uint16_t csum_offset; /**< Offset after that to place checksum */
 };
+
+struct virtio_net_config { 
+        uint8_t mac[6]; 
+        le16 status; 
+        le16 max_virtqueue_pairs; 
+        le16 mtu; 
+        le32 speed; 
+        u8 duplex; 
+        u8 rss_max_key_size; 
+        le16 rss_max_indirection_table_length; 
+        le32 supported_hash_types; 
+}; 
 
 /* This marks a buffer as continuing via the next field. */
 #define VRING_DESC_F_NEXT 1

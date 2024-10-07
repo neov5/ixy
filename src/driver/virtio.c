@@ -270,6 +270,46 @@ static void virtio_legacy_setup_rx_queue(struct virtio_device* dev, uint16_t idx
 	dev->rx_queue = vq;
 }
 
+static void virtio_modern_init(struct virtio_device* dev) {
+	// Section 3.1
+	debug("Configuring bar0");
+	write_io8(dev->fd, VIRTIO_CONFIG_STATUS_RESET, VIRTIO_PCI_STATUS);
+	while (read_io8(dev->fd, VIRTIO_PCI_STATUS) != VIRTIO_CONFIG_STATUS_RESET) {
+		usleep(100);
+	}
+	write_io8(dev->fd, VIRTIO_CONFIG_STATUS_ACK, VIRTIO_PCI_STATUS);
+	write_io8(dev->fd, VIRTIO_CONFIG_STATUS_DRIVER, VIRTIO_PCI_STATUS);
+	// Negotiate features
+	uint32_t host_features = read_io32(dev->fd, VIRTIO_PCI_HOST_FEATURES);
+	debug("Host features: %x", host_features);
+	const uint32_t required_features = (1u << VIRTIO_NET_F_CSUM) | (1u << VIRTIO_NET_F_GUEST_CSUM) |
+					   (1u << VIRTIO_NET_F_CTRL_VQ) | (1u << VIRTIO_F_ANY_LAYOUT) |
+					   (1u << VIRTIO_NET_F_CTRL_RX) /*| (1u<<VIRTIO_NET_F_MQ)*/;
+	if ((host_features & required_features) != required_features) {
+		error("Device does not support required features");
+	}
+	debug("Guest features before negotiation: %x", read_io32(dev->fd, VIRTIO_PCI_GUEST_FEATURES));
+	write_io32(dev->fd, required_features, VIRTIO_PCI_GUEST_FEATURES);
+	write_io8(dev->fd, VIRTIO_CONFIG_STATUS_FEATURES_OK, VIRTIO_PCI_STATUS);
+	if (read_io8(dev->fd, VIRTIO_PCI_STATUS) != VIRTIO_CONFIG_STATUS_FEATURES_OK) {
+		error("Device does not support required features");
+	}
+	debug("Guest features after negotiation: %x", read_io32(dev->fd, VIRTIO_PCI_GUEST_FEATURES));
+	// Queue setup - Section 5.1.2 for queue index calculation
+	// Legacy devices only have 3 queues
+	// TODO modern queue setup
+	virtio_legacy_setup_rx_queue(dev, 0); // Rx
+	virtio_legacy_setup_tx_queue(dev, 1); // Tx
+	virtio_legacy_setup_tx_queue(dev, 2); // Control
+	_mm_mfence();
+	// Signal OK
+	write_io8(dev->fd, VIRTIO_CONFIG_STATUS_DRIVER_OK, VIRTIO_PCI_STATUS);
+	info("Setup complete");
+	// Recheck status
+	virtio_legacy_check_status(dev);
+	virtio_legacy_set_promiscuous(dev, true);
+}
+
 static void virtio_legacy_init(struct virtio_device* dev) {
 	// Section 3.1
 	debug("Configuring bar0");
